@@ -1,15 +1,17 @@
 package pacman.entries.pacman;
 
 import pacman.controllers.Controller;
-import pacman.game.Constants.DM;
 import pacman.game.Constants.GHOST;
 import pacman.game.Constants.MOVE;
 import pacman.game.Game;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.fuzzylite.Engine;
-import com.fuzzylite.activation.General;
 import com.fuzzylite.defuzzifier.Centroid;
 import com.fuzzylite.norm.s.Maximum;
 import com.fuzzylite.norm.t.Minimum;
@@ -39,26 +41,24 @@ public class MyPacMan extends Controller<MOVE>
 		
 		InputVariable inputVariable = new InputVariable();
 		inputVariable.setEnabled(true);
-		inputVariable.setName("Blinky");	// Distancia a Blinky (prÃ³ximamente a CUALQUIER fantasma)
-		inputVariable.setRange(0.000, 150.000);	// Aqui hay que poner la maxima distancia posible a un fantasma (si estÃ¡ en el lado opuesto del laberinto (linea 61 DataTuple.java)?)
-		inputVariable.addTerm(new Triangle("NEAR", 0.000, 25.000, 50.000));	// Seguro que triÃ¡ngulos es lo mejor? Porque una distancia de 0.000 es cerca no, lo siguiente...
-		inputVariable.addTerm(new Triangle("MEDIUM", 25.000, 50.000, 75.000));
-		inputVariable.addTerm(new Triangle("FAR", 75.000, 100.000, 150.000));
+		inputVariable.setName("Blinky");	// Distancia a Blinky (próximamente a CUALQUIER fantasma). Esta es la variable borrosa
+		inputVariable.setRange(0.000, 150.000);	// Aqui hay que poner la maxima distancia posible a un fantasma (si está en el lado opuesto del laberinto (linea 61 DataTuple.java)?)
+		inputVariable.addTerm(new Trapezoid("NEAR", 0.000, 0.000, 25.000, 50.000));	// Estos son los valores borrosos del conjunto borroso Distancia a Blinky
+		inputVariable.addTerm(new Trapezoid("FAR", 25.000,50.000, 75.000, 150.000));
 		engine.addInputVariable(inputVariable);
 		
 		
 		OutputVariable outputVariable = new OutputVariable();
 		outputVariable.setEnabled(true);
-		outputVariable.setName("Run");
+		outputVariable.setName("Action");
 		outputVariable.setRange(0.000, 150.000); // Repasar esto
 		outputVariable.fuzzyOutput().setAggregation(new Maximum());
-		outputVariable.setDefuzzifier(new Centroid(200));	// Esto sÃ­ sÃ© de lo que es
+		outputVariable.setDefuzzifier(new Centroid());	// Esto sí sé de lo que es
 		outputVariable.setDefaultValue(Double.NaN);
 		outputVariable.setLockValueInRange(false);
 		outputVariable.setLockPreviousValue(false);
-		outputVariable.addTerm(new Triangle("NEAR", 0.000, 0.000, 25.000, 50.000));
-		outputVariable.addTerm(new Triangle("MEDIUM", 25.000, 50.000, 75.000));
-		outputVariable.addTerm(new Triangle("FAR", 75.000, 100.000, 150.000));
+		outputVariable.addTerm(new Triangle("RUN", 0.000, 25.000, 50.000));
+		outputVariable.addTerm(new Triangle("EATPILLS", 50.000, 75.000, 150.000));
 		engine.addOutputVariable(outputVariable);
 		
 		RuleBlock ruleBlock = new RuleBlock();
@@ -67,27 +67,48 @@ public class MyPacMan extends Controller<MOVE>
 		ruleBlock.setConjunction(null);
 		ruleBlock.setDisjunction(null);
 		ruleBlock.setImplication(new Minimum());	// Esto pa que es??
-		ruleBlock.setActivation(new General());	// Y esto??
-		ruleBlock.addRule(Rule.parse("if Blinky is NEAR then Run is FAR", engine));
-		ruleBlock.addRule(Rule.parse("if Blinky is MEDIUM then Run is MEDIUM", engine));
-		ruleBlock.addRule(Rule.parse("if Blinky is FAR then Run is NEAR", engine));
+		ruleBlock.addRule(Rule.parse("if Blinky is NEAR then Action is RUN", engine));
+		ruleBlock.addRule(Rule.parse("if Blinky is FAR then Action is EATPILLS", engine));
 		engine.addRuleBlock(ruleBlock);
 	}
 	
+	ArrayList<Double> outputMemberships = new ArrayList<Double>();
 	public MOVE getMove(Game game, long timeDue) 
 	{
 		//Place your game logic here to play the game as Ms Pac-Man
-		// Una vez que hemos configurado el engine (en el mÃ©todo de arriba),
+		// Una vez que hemos configurado el engine (en el método de arriba),
 		// le pasamos las variables que hayamos elegido de game (cerca, mucho tiempo, pocas pills, etc.)
-		double distanceToBlinky = game.getDistance(game.getGhostCurrentNodeIndex(GHOST.BLINKY), game.getPacmanCurrentNodeIndex(), DM.EUCLID);
+		double distanceToBlinky = game.getEuclideanDistance(game.getGhostCurrentNodeIndex(GHOST.BLINKY), game.getPacmanCurrentNodeIndex());
+		//double distanceToBlinky = game.getDistance(game.getGhostCurrentNodeIndex(GHOST.BLINKY), game.getPacmanCurrentNodeIndex(), DM.EUCLID);
 		engine.setInputValue("Blinky", distanceToBlinky);
 		// Y le decimos al engine que nos calcule el siguiente movimiento.
 		engine.process();
 		// Pero el engine nos lo da borrosificado, pues lo tenemos que desborrosificar
-		OutputVariable runOutput = engine.getOutputVariable("Run");
-		runOutput.fuzzyOutput().highestActivatedTerm();	// Esto te da la pertenencia final
-		// Por Ãºltimo, nos queda mapear el output a un MOVE real. Y fin.
-		System.out.println(runOutput);
+		OutputVariable runOutput = engine.getOutputVariable("Action");
+		//runOutput.fuzzyOutput().highestActivatedTerm();	// Esto te da la pertenencia final
+		// Por último, nos queda mapear el output a un MOVE real. Y fin.
+		System.out.println("Distance to Blinky: " + distanceToBlinky);
+		
+		System.out.println(runOutput.fuzzyOutputValue());	// Esto nos da los dos valores de pertenencia de RUN y EATPILLS juntos (con texto)
+		// Extraemos los valores de pertenencia de la cadena de texto
+		Pattern p = Pattern.compile("\\d+\\.\\d+");
+		Matcher m = p.matcher(runOutput.fuzzyOutputValue());
+		while (m.find()) {
+			//System.out.println(m.group());
+			outputMemberships.add(Double.parseDouble(m.group()));
+			}
+		
+		// Mostramos los valores depertenencia extraídos por pantalla
+//		for(int i = 0; i < outputMemberships.size(); i++) {
+//			System.out.println(outputMemberships.get(i));
+//		}
+		
+		// Nos quedamos con el mayor valor de pertenencia
+		double maxMemebership = Collections.max(outputMemberships);
+		System.out.println("Max: " + maxMemebership);
+		outputMemberships.clear();
+		
+		System.out.println("\n");
 		
 		return myMove;
 	}
