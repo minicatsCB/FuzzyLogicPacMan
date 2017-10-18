@@ -6,8 +6,11 @@ import pacman.game.Constants.MOVE;
 import pacman.game.Game;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,6 +76,8 @@ public class MyPacMan extends Controller<MOVE>
 	}
 	
 	ArrayList<Double> outputMemberships = new ArrayList<Double>();
+	Map<String, Double> dictionary = new HashMap<String, Double>();
+	Map<String, Double> finalAction = new HashMap<String, Double>();
 	public MOVE getMove(Game game, long timeDue) 
 	{
 		//Place your game logic here to play the game as Ms Pac-Man
@@ -89,26 +94,79 @@ public class MyPacMan extends Controller<MOVE>
 		// Por último, nos queda mapear el output a un MOVE real. Y fin.
 		System.out.println("Distance to Blinky: " + distanceToBlinky);
 		
-		System.out.println(runOutput.fuzzyOutputValue());	// Esto nos da los dos valores de pertenencia de RUN y EATPILLS juntos (con texto)
+		System.out.println("Todo: " + runOutput.fuzzyOutputValue());	// Esto nos da los dos valores de pertenencia de RUN y EATPILLS juntos (con texto)
 		// Extraemos los valores de pertenencia de la cadena de texto
-		Pattern p = Pattern.compile("\\d+\\.\\d+");
+		Pattern p = Pattern.compile("\\d+\\.\\d+/[A-Z]+");
 		Matcher m = p.matcher(runOutput.fuzzyOutputValue());
+		
+		// Separa el número de las letras, y los guarda en un diccionario, cada variable con su valor de pertenencia
+		Pattern oPattern = Pattern.compile("[A-Z]+");
+		Pattern mPattern = Pattern.compile("\\d+\\.\\d+");
+		Matcher oMatcher, mMatcher;
+		String s = null;
+		Double d = null;
 		while (m.find()) {
-			//System.out.println(m.group());
-			outputMemberships.add(Double.parseDouble(m.group()));
+			//outputMemberships.add(Double.parseDouble(m.group()));
+			mMatcher = mPattern.matcher(m.group());
+			while (mMatcher.find()) {
+				//System.out.println("Aquí: " + mMatcher.group());
+				d = Double.parseDouble(mMatcher.group());
+			}
+			oMatcher = oPattern.matcher(m.group());
+			while (oMatcher.find()) {
+				//System.out.println("Aquí: " + oMatcher.group());
+				s = oMatcher.group();
+			}
+			dictionary.put(s, d);
 			}
 		
+		//System.out.println(dictionary.entrySet());
+		
+		Object[] a = dictionary.entrySet().toArray();
+		Arrays.sort(a, new Comparator() {
+		    public int compare(Object o1, Object o2) {
+		        return ((Map.Entry<String, Double>) o2).getValue()
+		                   .compareTo(((Map.Entry<String, Double>) o1).getValue());
+		    }
+		});
+		
+		//System.out.println("Hey: " + a[0]);
+		oMatcher = oPattern.matcher(a[0].toString());
+		while (oMatcher.find()) {
+			//System.out.println("Aquí final: " + oMatcher.group());
+			s = oMatcher.group();
+		}
+		System.out.println("Aqui final s: " + s);
+		
+		
+		// No hace falta imprimir el set ordenado, ya nos hemos quedado con el valor
+		// de la primera posición antes
+//		for (Object e : a) {
+//		    System.out.println(((Map.Entry<String, Double>) e).getKey() + " : "
+//		            + ((Map.Entry<String, Double>) e).getValue());
+//		}
+				
 		// Mostramos los valores depertenencia extraídos por pantalla
 //		for(int i = 0; i < outputMemberships.size(); i++) {
 //			System.out.println(outputMemberships.get(i));
 //		}
 		
 		// Nos quedamos con el mayor valor de pertenencia
-		double maxMemebership = Collections.max(outputMemberships);
-		System.out.println("Max: " + maxMemebership);
-		outputMemberships.clear();
+//		double maxMemebership = Collections.max(outputMemberships);
+//		System.out.println("Max: " + maxMemebership);
+		//outputMemberships.clear();
+		dictionary.clear();
 		
 		System.out.println("\n");
+		
+		
+		// Ahora que ya tenemos la acción final, la llevamos a cabo
+		if(s.equals("RUN")) {
+			System.out.println("El fantasma está cerca. Correeeee!");
+		}
+		else if(s.equals("EATPILLS")) {
+			System.out.println("El fantasma está lejos. Comeeeee!");
+		}
 		
 		return myMove;
 	}
