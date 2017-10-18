@@ -5,7 +5,6 @@ import pacman.game.Constants.GHOST;
 import pacman.game.Constants.MOVE;
 import pacman.game.Game;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -75,9 +74,10 @@ public class MyPacMan extends Controller<MOVE>
 		engine.addRuleBlock(ruleBlock);
 	}
 	
-	ArrayList<Double> outputMemberships = new ArrayList<Double>();
-	Map<String, Double> dictionary = new HashMap<String, Double>();
 	Map<String, Double> finalAction = new HashMap<String, Double>();
+	Pattern oPattern = Pattern.compile("[A-Z]+");
+	Pattern mPattern = Pattern.compile("\\d+\\.\\d+");
+	Matcher oMatcher, mMatcher;
 	public MOVE getMove(Game game, long timeDue) 
 	{
 		//Place your game logic here to play the game as Ms Pac-Man
@@ -95,18 +95,41 @@ public class MyPacMan extends Controller<MOVE>
 		System.out.println("Distance to Blinky: " + distanceToBlinky);
 		
 		System.out.println("Todo: " + runOutput.fuzzyOutputValue());	// Esto nos da los dos valores de pertenencia de RUN y EATPILLS juntos (con texto)
+		
+		String s = getHighestActivatedTerm(runOutput.fuzzyOutputValue());
+				
+		System.out.println("\n");
+		
+		// Ahora que ya tenemos la acción final, la llevamos a cabo
+		if(s.equals("RUN")) {
+			System.out.println("El fantasma está cerca. Correeeee!");
+		}
+		else if(s.equals("EATPILLS")) {
+			System.out.println("El fantasma está lejos. Comeeeee!");
+		}
+		
+		return myMove;
+	}
+
+	public String getHighestActivatedTerm(String fuzzyOutputValue) {
+		Map<String, Double> dictionary = convertToDictionary(fuzzyOutputValue);
+		String s = getMaximumActionValuePair(dictionary);
+		dictionary.clear();
+		
+		return s;
+	}
+	
+	public Map<String, Double> convertToDictionary(String fuzzyOutputValue) {
+		Map<String, Double> dictionary = new HashMap<String, Double>();
+		
 		// Extraemos los valores de pertenencia de la cadena de texto
 		Pattern p = Pattern.compile("\\d+\\.\\d+/[A-Z]+");
-		Matcher m = p.matcher(runOutput.fuzzyOutputValue());
+		Matcher m = p.matcher(fuzzyOutputValue);
 		
 		// Separa el número de las letras, y los guarda en un diccionario, cada variable con su valor de pertenencia
-		Pattern oPattern = Pattern.compile("[A-Z]+");
-		Pattern mPattern = Pattern.compile("\\d+\\.\\d+");
-		Matcher oMatcher, mMatcher;
 		String s = null;
 		Double d = null;
 		while (m.find()) {
-			//outputMemberships.add(Double.parseDouble(m.group()));
 			mMatcher = mPattern.matcher(m.group());
 			while (mMatcher.find()) {
 				//System.out.println("Aquí: " + mMatcher.group());
@@ -120,8 +143,11 @@ public class MyPacMan extends Controller<MOVE>
 			dictionary.put(s, d);
 			}
 		
-		//System.out.println(dictionary.entrySet());
-		
+		return dictionary;
+	}
+	
+	public String getMaximumActionValuePair(Map<String, Double> dictionary) {
+		String s = null;
 		Object[] a = dictionary.entrySet().toArray();
 		Arrays.sort(a, new Comparator() {
 		    public int compare(Object o1, Object o2) {
@@ -129,6 +155,13 @@ public class MyPacMan extends Controller<MOVE>
 		                   .compareTo(((Map.Entry<String, Double>) o1).getValue());
 		    }
 		});
+		
+		// No hace falta imprimir el set ordenado, ya nos vamos a quedar con el valor
+		// de la primera posición antes
+//		for (Object e : a) {
+//		    System.out.println(((Map.Entry<String, Double>) e).getKey() + " : "
+//		            + ((Map.Entry<String, Double>) e).getValue());
+//		}
 		
 		//System.out.println("Hey: " + a[0]);
 		oMatcher = oPattern.matcher(a[0].toString());
@@ -138,36 +171,7 @@ public class MyPacMan extends Controller<MOVE>
 		}
 		System.out.println("Aqui final s: " + s);
 		
-		
-		// No hace falta imprimir el set ordenado, ya nos hemos quedado con el valor
-		// de la primera posición antes
-//		for (Object e : a) {
-//		    System.out.println(((Map.Entry<String, Double>) e).getKey() + " : "
-//		            + ((Map.Entry<String, Double>) e).getValue());
-//		}
-				
-		// Mostramos los valores depertenencia extraídos por pantalla
-//		for(int i = 0; i < outputMemberships.size(); i++) {
-//			System.out.println(outputMemberships.get(i));
-//		}
-		
-		// Nos quedamos con el mayor valor de pertenencia
-//		double maxMemebership = Collections.max(outputMemberships);
-//		System.out.println("Max: " + maxMemebership);
-		//outputMemberships.clear();
-		dictionary.clear();
-		
-		System.out.println("\n");
-		
-		
-		// Ahora que ya tenemos la acción final, la llevamos a cabo
-		if(s.equals("RUN")) {
-			System.out.println("El fantasma está cerca. Correeeee!");
-		}
-		else if(s.equals("EATPILLS")) {
-			System.out.println("El fantasma está lejos. Comeeeee!");
-		}
-		
-		return myMove;
+		return s;
 	}
+	
 }
