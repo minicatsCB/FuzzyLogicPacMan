@@ -47,32 +47,40 @@ public class MyPacMan extends Controller<MOVE>
 		
 		InputVariable inputVariable = new InputVariable();
 		inputVariable.setEnabled(true);
-		inputVariable.setName("Ghost");	// Distancia a Ghost (próximamente a CUALQUIER fantasma). Esta es la variable borrosa
-		inputVariable.setRange(0.000, 150.000);	// Aqui hay que poner la maxima distancia posible a un fantasma (si está en el lado opuesto del laberinto (linea 61 DataTuple.java)?)
-		inputVariable.addTerm(new Trapezoid("NEAR", 0.000, 0.000, 25.000, 50.000));	// Estos son los valores borrosos del conjunto borroso Distancia a Ghost
+		// The fuzzy input variable
+		inputVariable.setName("Ghost");
+		// The maximum input range (line 61 DataTuple.java)?)
+		inputVariable.setRange(0.000, 150.000);
+		// The fuzzy input values of the fuzzy input variable
+		inputVariable.addTerm(new Trapezoid("NEAR", 0.000, 0.000, 25.000, 50.000));
 		inputVariable.addTerm(new Trapezoid("FAR", 25.000,50.000, 75.000, 150.000));
 		engine.addInputVariable(inputVariable);
 		
 		
 		OutputVariable outputVariable = new OutputVariable();
 		outputVariable.setEnabled(true);
+		// The fuzzy output variable (line 61 DataTuple.java)?)
 		outputVariable.setName("Action");
-		outputVariable.setRange(0.000, 150.000); // Repasar esto
+		// The maximum output range
+		outputVariable.setRange(0.000, 150.000);
 		outputVariable.fuzzyOutput().setAggregation(new Maximum());
-		outputVariable.setDefuzzifier(new Centroid());	// Esto sí sé de lo que es
+		outputVariable.setDefuzzifier(new Centroid()); // <---
 		outputVariable.setDefaultValue(Double.NaN);
 		outputVariable.setLockValueInRange(false);
 		outputVariable.setLockPreviousValue(false);
+		// The fuzzy output value of the fuzzy output variable
 		outputVariable.addTerm(new Triangle("RUN", 0.000, 25.000, 50.000));
 		outputVariable.addTerm(new Triangle("EATPILLS", 50.000, 75.000, 150.000));
 		engine.addOutputVariable(outputVariable);
 		
+		
 		RuleBlock ruleBlock = new RuleBlock();
 		ruleBlock.setEnabled(true);
 		ruleBlock.setName("");
-		ruleBlock.setConjunction(null);
-		ruleBlock.setDisjunction(null);
-		ruleBlock.setImplication(new Minimum());	// Esto pa que es??
+		ruleBlock.setConjunction(null);	// ???
+		ruleBlock.setDisjunction(null);	// ???
+		ruleBlock.setImplication(new Minimum());	// ???
+		// Rules!!
 		ruleBlock.addRule(Rule.parse("if Ghost is NEAR then Action is RUN", engine));
 		ruleBlock.addRule(Rule.parse("if Ghost is FAR then Action is EATPILLS", engine));
 		engine.addRuleBlock(ruleBlock);
@@ -93,42 +101,42 @@ public class MyPacMan extends Controller<MOVE>
 		for(int i = 0; i < GHOST.values().length; i++) {
 			ghostsDistanceDictionary.put(GHOST.values()[i], game.getEuclideanDistance(game.getPacmanCurrentNodeIndex(),game.getGhostCurrentNodeIndex(GHOST.values()[i])));
 		}
-		System.out.println("Distances: " + ghostsDistanceDictionary.entrySet());
+		//System.out.println("Distances: " + ghostsDistanceDictionary.entrySet());
 		
+		// Choose the closest ghost distance and pass it to the fuzzy logic engine
 		Entry<GHOST, Double> closestGhostDistancePair = getMinimumGhostDistancePair(ghostsDistanceDictionary);
 		System.out.println("Closest ghost: " + getMinimumGhostDistancePair(ghostsDistanceDictionary));
-		
-		// Una vez que hemos configurado el engine (en el método de arriba),
-		// le pasamos las variables que hayamos elegido de game (cerca, mucho tiempo, pocas pills, etc.)
 		engine.setInputValue("Ghost", closestGhostDistancePair.getValue());
-		// Y le decimos al engine que nos calcule el siguiente movimiento.
+		
+		// Engine, work!!
 		engine.process();
-		// Pero el engine nos lo da borrosificado, pues lo tenemos que desborrosificar
+		
+		// But the engine give as the result fuzzified, so we need to defuzzify it
 		OutputVariable runOutput = engine.getOutputVariable("Action");	
-		System.out.println("Todo: " + runOutput.fuzzyOutputValue());	// Esto nos da los dos valores de pertenencia de RUN y EATPILLS juntos (con texto)
+		System.out.println("All: " + runOutput.fuzzyOutputValue()); // This returns a string with each action and its membership value
 		
+		// Choose the action with the highest membership value
 		String s = getHighestActivatedTerm(runOutput.fuzzyOutputValue());
-				
-		System.out.println("\n");
 		
-		// Por último, nos queda mapear el output a un MOVE real. Y fin.	
-		// Ahora que ya tenemos la acción final, la llevamos a cabo
+		// Last, map the the action to do to a PacMan MOVE
 		int pacmanCurrentNodeIndex = game.getPacmanCurrentNodeIndex();
 		if(s.equals("RUN")) {
-			System.out.println("El fantasma está cerca. Correeeee!");
+			System.out.println("The ghost is near. RUUUUUUN!");
 			int closestGhostNodeIndex = game.getGhostCurrentNodeIndex(closestGhostDistancePair.getKey());
 			MOVE nextMoveAwayFromTarget = game.getNextMoveAwayFromTarget(pacmanCurrentNodeIndex, closestGhostNodeIndex, DM.EUCLID);
 			System.out.println("Next move away: " + nextMoveAwayFromTarget);
 			return nextMoveAwayFromTarget;
 		}
 		else if(s.equals("EATPILLS")) {
-			System.out.println("El fantasma está lejos. Comeeeee!");
+			System.out.println("The ghost is far. EAAAAAAT!");
 			int[] pillCurrentNodeIndex = game.getActivePillsIndices();
 			int closestPillNodeIndex = game.getClosestNodeIndexFromNodeIndex(game.getPacmanCurrentNodeIndex(), pillCurrentNodeIndex, DM.EUCLID);
 			MOVE nextMoveTowardsTarget = game.getNextMoveTowardsTarget(pacmanCurrentNodeIndex, closestPillNodeIndex, DM.EUCLID);
 			System.out.println("Next move towards: " + nextMoveTowardsTarget);
 			return nextMoveTowardsTarget;
 		}
+		
+		System.out.println("\n");
 		
 		return myMove;
 	}
