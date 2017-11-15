@@ -6,8 +6,13 @@ import pacman.game.Constants.GHOST;
 import pacman.game.Constants.MOVE;
 import pacman.game.Game;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -23,6 +28,7 @@ import com.fuzzylite.norm.s.Maximum;
 import com.fuzzylite.norm.t.Minimum;
 import com.fuzzylite.rule.Rule;
 import com.fuzzylite.rule.RuleBlock;
+import com.fuzzylite.term.Constant;
 import com.fuzzylite.term.Trapezoid;
 import com.fuzzylite.term.Triangle;
 import com.fuzzylite.variable.InputVariable;
@@ -36,7 +42,7 @@ import com.fuzzylite.variable.OutputVariable;
 public class MyPacMan extends Controller<MOVE>
 {
 	private MOVE myMove = MOVE.NEUTRAL;
-	Engine engine = new Engine();	// Our Fuzzy Logic engine
+	private Engine engine = new Engine();	// Our Fuzzy Logic engine
 	private EnumMap<GHOST, MOVE> myMoves = new EnumMap<GHOST, MOVE>(GHOST.class);
 	
 	/*
@@ -69,16 +75,16 @@ public class MyPacMan extends Controller<MOVE>
 		outputVariable.setLockValueInRange(false);
 		outputVariable.setLockPreviousValue(false);
 		// The fuzzy output value of the fuzzy output variable
-		outputVariable.addTerm(new Triangle("RUN", 0.000, 25.000, 50.000));
-		outputVariable.addTerm(new Triangle("EATPILLS", 50.000, 75.000, 150.000));
+		outputVariable.addTerm(new Constant("RUN", 25.000));
+		outputVariable.addTerm(new Constant("EATPILLS", 75.000));
 		engine.addOutputVariable(outputVariable);
 		
 		
 		RuleBlock ruleBlock = new RuleBlock();
 		ruleBlock.setEnabled(true);
-		ruleBlock.setName("");
-		ruleBlock.setConjunction(null);	// ???
-		ruleBlock.setDisjunction(null);	// ???
+		ruleBlock.setName("Rules");
+		ruleBlock.setConjunction(null);	// Intersección de las variables borrosas.
+		ruleBlock.setDisjunction(null);	// Unión de las variables borrosas
 		ruleBlock.setImplication(new Minimum());	// ???
 		// Rules!!
 		ruleBlock.addRule(Rule.parse("if Ghost is NEAR then Action is RUN", engine));
@@ -140,7 +146,8 @@ public class MyPacMan extends Controller<MOVE>
 		
 		return myMove;
 	}
-
+	
+	// Helper methods
 	public String getHighestActivatedTerm(String fuzzyOutputValue) {
 		Map<String, Double> dictionary = convertToDictionary(fuzzyOutputValue);
 		Entry<String, Double> s = getMaximumActionValuePair(dictionary);
@@ -222,5 +229,4 @@ public class MyPacMan extends Controller<MOVE>
 		
 		return s;
 	}
-	
 }
